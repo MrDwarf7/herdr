@@ -111,14 +111,19 @@ pub(crate) fn apply_pane_chrome(
             info.borders = if !multi_pane || !pane_borders {
                 Borders::NONE
             } else {
+                // Start with a full box and let each pane own only the dividers on
+                // its outer edges. A pane drops its RIGHT border when a neighbor
+                // sits there, so the shared vertical divider is drawn exactly once
+                // (by the right pane's LEFT). The bottom border is never drawn:
+                // internal horizontal dividers are owned by the lower pane's TOP,
+                // and the bottommost pane's bottom edge meets the terminal command
+                // line, so framing it would only steal a row of pane real estate.
                 let mut borders = Borders::ALL;
                 if !pane_gaps {
                     if right_neighbor.is_some() {
                         borders.remove(Borders::RIGHT);
                     }
-                    if below_neighbor.is_some() {
-                        borders.remove(Borders::BOTTOM);
-                    }
+                    borders.remove(Borders::BOTTOM);
                 }
                 borders
             };
@@ -910,6 +915,60 @@ mod tests {
         assert_eq!(left.rect.x + left.rect.width, right.rect.x);
         assert_eq!(left.borders, Borders::ALL);
         assert_eq!(right.borders, Borders::ALL);
+    }
+
+    #[test]
+    fn nested_split_without_gaps_uses_one_shared_divider_per_edge() {
+        // Layout: left pane (L) on the left, right side split vertically into
+        // top-right (TR) and bottom-right (BR).
+        let mut workspace = Workspace::test_new("test");
+        let left = workspace.tabs[0].root_pane;
+        let right = workspace.test_split(ratatui::layout::Direction::Horizontal);
+        workspace.tabs[0].layout.focus_pane(right);
+        let bottom_right = workspace.test_split(ratatui::layout::Direction::Vertical);
+        let root = left;
+
+        let infos = apply_pane_chrome(
+            workspace.tabs[0].layout.panes(Rect::new(0, 0, 100, 20)),
+            true,
+            false,
+        );
+        let l = infos.iter().find(|info| info.id == root).unwrap();
+        let tr = infos.iter().find(|info| info.id == right).unwrap();
+        let br = infos.iter().find(|info| info.id == bottom_right).unwrap();
+
+        // Shared vertical divider (L | TR/BR): drawn once by the right side.
+        assert!(!l.borders.contains(Borders::RIGHT));
+        assert!(tr.borders.contains(Borders::LEFT));
+        assert!(br.borders.contains(Borders::LEFT));
+        // Shared horizontal divider (TR - BR): drawn once by BR's TOP.
+        assert!(!tr.borders.contains(Borders::BOTTOM));
+        assert!(br.borders.contains(Borders::TOP));
+        // No doubled dividers on any side. TR also keeps its outer RIGHT edge.
+        // BR is the bottommost pane, so it never gets a BOTTOM border (that edge
+        // meets the terminal command line, not another pane).
+        assert_eq!(tr.borders, Borders::LEFT | Borders::TOP | Borders::RIGHT);
+        assert_eq!(br.borders, Borders::LEFT | Borders::TOP | Borders::RIGHT);
+        // L spans the full height on the left, so it is bottommost too: it keeps
+        // LEFT/TOP but never gets BOTTOM.
+        assert_eq!(l.borders, Borders::LEFT | Borders::TOP);
+    }
+
+    #[test]
+    fn bottommost_pane_without_gaps_omits_bottom_border() {
+        let mut workspace = Workspace::test_new("test");
+        let root = workspace.tabs[0].root_pane;
+        workspace.test_split(ratatui::layout::Direction::Vertical);
+
+        let infos = apply_pane_chrome(
+            workspace.tabs[0].layout.panes(Rect::new(0, 0, 100, 20)),
+            true,
+            false,
+        );
+        for info in infos {
+            assert!(!info.borders.contains(Borders::BOTTOM));
+        }
+        let _ = root;
     }
 
     #[test]
