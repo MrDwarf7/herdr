@@ -142,6 +142,20 @@ impl AppState {
             (KeyCode::Char('d'), mods) if mods.contains(KeyModifiers::CONTROL) => {
                 self.scroll_copy_mode_page(terminal_runtimes, 1, true)
             }
+            (KeyCode::Char('e'), mods) if mods.contains(KeyModifiers::CONTROL) => {
+                // Scroll viewport down by 1 line (content moves up); cursor stays.
+                if let Some(copy_mode) = self.copy_mode {
+                    self.scroll_pane_down(terminal_runtimes, copy_mode.pane_id, 1);
+                }
+                return;
+            }
+            (KeyCode::Char('y'), mods) if mods.contains(KeyModifiers::CONTROL) => {
+                // Scroll viewport up by 1 line (content moves down); cursor stays.
+                if let Some(copy_mode) = self.copy_mode {
+                    self.scroll_pane_up(terminal_runtimes, copy_mode.pane_id, 1);
+                }
+                return;
+            }
             _ => {}
         }
 
