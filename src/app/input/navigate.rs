@@ -113,11 +113,6 @@ impl App {
                 self.execute_tui_navigate_action(action, ActionContext::Navigate);
             }
             self.selection_autoscroll_deadline = None;
-            return;
-        }
-
-        if let Some(binding) = command_for_key(&self.state, raw_key, BindingDispatch::Prefix) {
-            self.launch_custom_command(binding, ActionContext::Navigate);
         }
     }
 
