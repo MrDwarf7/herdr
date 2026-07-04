@@ -67,6 +67,27 @@ impl App {
         }
 
         if self.state.is_prefix_key(key) {
+            // Double-tap detection: if we already have a pending prefix press
+            // within the timeout window, execute the prefix+prefix binding.
+            let prefix_combo = (self.state.prefix_code, self.state.prefix_mods);
+            let double_tap_ms = self.state.keybinds.last_pane
+                .options_for_combo(prefix_combo)
+                .map(|o| o.get_u16("double_tap_max_ms", 300))
+                .unwrap_or(300);
+            if let Some(last_press) = self.state.last_prefix_press.take() {
+                let elapsed = last_press.elapsed().as_millis() as u64;
+                if elapsed <= double_tap_ms as u64 {
+                    // Double-tap: execute the prefix+prefix action if bound.
+                    if let Some(action) = super::navigate::prefix_prefix_action(&self.state) {
+                        self.execute_tui_navigate_action(action, super::navigate::ActionContext::Prefix);
+                    }
+                    // No binding: clear timestamp, stay in existing behavior.
+                    return None;
+                }
+                // Timed out — fallthrough to fresh press below.
+            }
+            // First (or stale) press: enter prefix mode and record timestamp.
+            self.state.last_prefix_press = Some(std::time::Instant::now());
             self.state.mode = Mode::Prefix;
             return None;
         }

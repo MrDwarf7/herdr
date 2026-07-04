@@ -1326,6 +1326,7 @@ pub struct AppState {
     pub request_clipboard_write: Option<Vec<u8>>,
     pub creating_new_tab: bool,
     pub requested_new_tab_name: Option<String>,
+    pub requested_new_tab_cwd: Option<std::path::PathBuf>,
     pub rename_pane_target: Option<PaneId>,
     pub worktree_create: Option<WorktreeCreateState>,
     pub worktree_open: Option<WorktreeOpenState>,
@@ -1432,6 +1433,11 @@ pub struct AppState {
     pub host_terminal_appearance: Option<HostAppearance>,
     /// True when the foreground host explicitly reported appearance via Mode 2031.
     pub host_terminal_appearance_explicit: bool,
+    /// Copy mode scrolloff: lines of context kept above/below cursor.
+    pub copy_mode_scrolloff: u16,
+    /// Timestamp of the last prefix key press (for double-tap detection).
+    /// `None` when no pending double-tap window is active.
+    pub last_prefix_press: Option<std::time::Instant>,
     /// Settings panel state.
     pub settings: SettingsState,
     /// Cached integration recommendations for onboarding/settings UI.
@@ -1677,6 +1683,7 @@ impl AppState {
             request_clipboard_write: None,
             creating_new_tab: false,
             requested_new_tab_name: None,
+            requested_new_tab_cwd: None,
             rename_pane_target: None,
             worktree_create: None,
             worktree_open: None,
@@ -1784,6 +1791,8 @@ impl AppState {
             },
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
+            copy_mode_scrolloff: 0,
+            last_prefix_press: None,
             settings: SettingsState {
                 section: SettingsSection::Theme,
                 list: SelectionListState::new(0),

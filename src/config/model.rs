@@ -423,6 +423,9 @@ pub struct KeysConfig {
     pub command: Vec<CommandKeybindConfig>,
     #[serde(skip_serializing)]
     pub(crate) user_fields: BTreeSet<&'static str>,
+    /// Parsed per-binding options (e.g. last_pane → BindingOptions { double_tap_max_ms: 180 }).
+    #[serde(skip_serializing)]
+    pub(crate) binding_options: std::collections::HashMap<String, crate::config::BindingOptions>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -538,6 +541,9 @@ pub(crate) struct KeysConfigOverlay {
     indexed: Option<IndexedKeysConfig>,
     #[serde(skip_serializing)]
     command: Option<Vec<CommandKeybindConfig>>,
+    /// Captures any unknown keys (e.g. `last_pane.options`, `copy_mode.y.options`).
+    #[serde(flatten, skip_serializing)]
+    extras: std::collections::HashMap<String, toml::Value>,
 }
 
 impl<'de> Deserialize<'de> for KeysConfig {
@@ -612,6 +618,25 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(toggle_sidebar);
         apply_field!(indexed);
         apply_field!(command);
+
+        // Extract per-binding options from extras (keys ending in ".options").
+        // e.g. "last_pane.options" → keys.last_pane gets BindingOptions { double_tap_max_ms: 180 }
+        let mut binding_options = std::collections::HashMap::new();
+        for (key, value) in &input.extras {
+            if let Some(field) = key.strip_suffix(".options") {
+                if let toml::Value::Table(table) = value {
+                    let mut opts = std::collections::HashMap::new();
+                    for (k, v) in table {
+                        opts.insert(k.clone(), v.clone());
+                    }
+                    binding_options.insert(
+                        field.to_string(),
+                        crate::config::BindingOptions { inner: opts },
+                    );
+                }
+            }
+        }
+        keys.binding_options = binding_options;
 
         Ok(keys)
     }
@@ -968,6 +993,7 @@ impl Default for KeysConfig {
             indexed: IndexedKeysConfig::default(),
             command: Vec::new(),
             user_fields: BTreeSet::new(),
+            binding_options: std::collections::HashMap::new(),
         }
     }
 }
