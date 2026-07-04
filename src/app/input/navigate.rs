@@ -2007,6 +2007,25 @@ fn unique_scrollback_path(attempt: u32) -> std::path::PathBuf {
     ))
 }
 
+
+/// Return the NavigateAction bound to `prefix+prefix` (double-tap), if any.
+/// Searches the configured keybindings for a binding whose trigger matches
+/// the configured prefix key in Prefix dispatch mode.
+pub(super) fn prefix_prefix_action(state: &crate::app::state::AppState) -> Option<NavigateAction> {
+    use crate::config::terminal_key_matches_combo;
+    let prefix_key = crate::input::TerminalKey::new(state.prefix_code, state.prefix_mods);
+    for (bindings, action) in [(&state.keybinds.last_pane, NavigateAction::LastPane)] {
+        for binding in &bindings.bindings {
+            if binding.trigger.is_prefix()
+                && terminal_key_matches_combo(&prefix_key, binding.trigger.combo())
+            {
+                return Some(action);
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(unix)]

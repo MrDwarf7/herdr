@@ -1527,6 +1527,9 @@ pub struct AppState {
     pub host_terminal_appearance: Option<HostAppearance>,
     /// True when the foreground host explicitly reported appearance via Mode 2031.
     pub host_terminal_appearance_explicit: bool,
+    /// Timestamp of the last prefix key press (for double-tap detection).
+    /// `None` when no pending double-tap window is active.
+    pub last_prefix_press: Option<std::time::Instant>,
     /// Settings panel state.
     pub settings: SettingsState,
     /// Cached integration recommendations for onboarding/settings UI.
@@ -1894,6 +1897,7 @@ impl AppState {
             },
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
+            last_prefix_press: None,
             settings: SettingsState {
                 section: SettingsSection::Theme,
                 list: SelectionListState::new(0),

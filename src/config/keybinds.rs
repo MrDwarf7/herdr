@@ -146,10 +146,38 @@ impl BindingTrigger {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Arbitrary per-binding key-value options (e.g. `last_pane.options = { double_tap_max_ms = 180 }`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BindingOptions {
+    pub(crate) inner: std::collections::HashMap<String, toml::Value>,
+}
+
+impl BindingOptions {
+    pub fn get_u16(&self, key: &str, default: u16) -> u16 {
+        self.inner.get(key)
+            .and_then(|v| v.as_integer())
+            .and_then(|v| u16::try_from(v).ok())
+            .unwrap_or(default)
+    }
+    pub fn get_bool(&self, key: &str, default: bool) -> bool {
+        self.inner.get(key)
+            .and_then(|v| v.as_bool())
+        .unwrap_or(default)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for BindingOptions {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let inner = std::collections::HashMap::deserialize(deserializer)?;
+        Ok(Self { inner })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedBinding {
     pub trigger: BindingTrigger,
     pub label: String,
+    pub options: BindingOptions,
 }
 
 impl ResolvedBinding {
@@ -163,7 +191,7 @@ impl ResolvedBinding {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ActionKeybinds {
     pub bindings: Vec<ResolvedBinding>,
 }
@@ -233,6 +261,13 @@ impl ActionKeybinds {
         } else {
             Some(labels.join(" / "))
         }
+    }
+
+    /// Return the options for the binding matching `combo`, if any.
+    pub fn options_for_combo(&self, combo: KeyCombo) -> Option<&BindingOptions> {
+        self.bindings.iter()
+            .find(|b| b.trigger.combo() == combo)
+            .map(|b| &b.options)
     }
 
     pub fn prefix_rhs_label(&self) -> Option<String> {
@@ -540,9 +575,14 @@ impl Config {
         macro_rules! apply_action {
             ($target:expr, $field:ident, $source:expr) => {
                 if field_source!($field) == $source {
+                    let options = self.keys.binding_options
+                        .get(stringify!($field))
+                        .cloned()
+                        .unwrap_or_default();
                     $target = parse_action_bindings(
                         concat!("keys.", stringify!($field)),
                         &self.keys.$field,
+                        &options,
                         &mut registry,
                         &mut diagnostics,
                         $source,
@@ -756,6 +796,7 @@ fn append_custom_command_bindings(
         let bindings = parse_action_bindings(
             &key_field,
             &command.key,
+            &BindingOptions::default(),
             registry,
             diagnostics,
             BindingSource::User,
@@ -798,6 +839,7 @@ fn append_custom_command_bindings(
 fn parse_action_bindings(
     field: &str,
     config: &BindingConfig,
+    options: &BindingOptions,
     registry: &mut BindingRegistry,
     diagnostics: &mut Vec<String>,
     source: BindingSource,
@@ -810,11 +852,16 @@ fn parse_action_bindings(
         }
         match parse_binding_string(raw) {
             Some(ParsedBinding::Single(binding)) => {
-                if reject_binding(field, &binding, registry, diagnostics, source) {
+                let resolved = ResolvedBinding {
+                    trigger: binding.trigger,
+                    label: binding.label,
+                    options: options.clone(),
+                };
+                if reject_binding(field, &resolved, registry, diagnostics, source) {
                     continue;
                 }
-                registry.register(&binding, field, source);
-                bindings.push(binding);
+                registry.register(&resolved, field, source);
+                bindings.push(resolved);
             }
             Some(ParsedBinding::Range(_)) => {
                 let diag = format!("range keybinding is only valid for indexed actions: {field} = {raw:?}; disabling binding");
@@ -958,10 +1005,9 @@ fn append_legacy_indexed_bindings(
             KeyCode::Char(char::from_digit(idx, 10).unwrap_or('1')),
             modifiers,
         );
-        let binding = ResolvedBinding {
-            trigger: BindingTrigger::Direct(combo),
-            label: format!("{}+{idx}", configured_label.trim()),
-        };
+        let trigger = BindingTrigger::Direct(combo);
+        let label = format!("{}+{}", configured_label.trim(), idx);
+        let binding = ResolvedBinding { trigger, label, options: BindingOptions::default() };
         if reject_binding(field, &binding, registry, diagnostics, source) {
             continue;
         }
@@ -1086,6 +1132,7 @@ fn parse_binding_string(raw: &str) -> Option<ParsedBinding> {
                     } else {
                         key_label
                     },
+                    options: BindingOptions::default(),
                 }
             })
             .collect();
@@ -1105,6 +1152,7 @@ fn parse_binding_string(raw: &str) -> Option<ParsedBinding> {
             BindingTrigger::Direct(combo)
         },
         label,
+        options: BindingOptions::default(),
     }))
 }
 
