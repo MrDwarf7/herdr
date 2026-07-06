@@ -10,6 +10,7 @@ use super::{
 };
 
 pub const MAX_TOAST_DELAY_SECONDS: u64 = 3600;
+pub const MAX_SCROLL_OFF_LINES: u16 = 1000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -850,6 +851,13 @@ pub struct AdvancedConfig {
     /// Maximum scrollback buffer size in bytes retained per pane terminal. Default: 10000000.
     #[serde(alias = "scrollback_lines")]
     pub scrollback_limit_bytes: usize,
+    /// Copy mode scrolloff: lines of context kept above/below the cursor. Default: 0.
+    #[serde(
+        alias = "scrolloff_lines",
+        alias = "scrolloff",
+        deserialize_with = "deserialize_scrolloff"
+    )]
+    pub copy_mode_scrolloff: u16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1088,8 +1096,27 @@ impl Default for AdvancedConfig {
     fn default() -> Self {
         Self {
             scrollback_limit_bytes: DEFAULT_SCROLLBACK_LIMIT_BYTES,
+            copy_mode_scrolloff: 0,
         }
     }
+}
+
+/// Custom deserializer for scrolloff_lines that subtracts 1 from the value and
+/// handles a reasonable upper limit.
+/// Without this we would have to fix up the value after deserialization via a mutable value.
+pub fn deserialize_scrolloff<'de, D>(deserializer: D) -> Result<u16, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = u16::deserialize(deserializer)
+        .unwrap_or(0)
+        .saturating_sub(1);
+    if value >= MAX_SCROLL_OFF_LINES {
+        return Err(de::Error::custom(format!(
+            "scrolloff_lines must be between 0 and {MAX_SCROLL_OFF_LINES}"
+        )));
+    }
+    Ok(value)
 }
 
 #[cfg(test)]

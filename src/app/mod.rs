@@ -471,7 +471,8 @@ impl App {
 
         info!(
             pane_scrollback_limit_bytes = config.advanced.scrollback_limit_bytes,
-            "using pane scrollback configuration"
+            copy_mode_scrolloff = config.advanced.copy_mode_scrolloff,
+            "using advanced pane configuration"
         );
 
         let latest_release_notes = crate::release_notes::load_latest();
@@ -622,6 +623,7 @@ impl App {
             shell_mode: config.terminal.shell_mode,
             new_terminal_cwd: config.terminal.new_cwd.clone(),
             pane_scrollback_limit_bytes: config.advanced.scrollback_limit_bytes,
+            copy_mode_scrolloff: config.advanced.copy_mode_scrolloff,
             accent: crate::config::parse_color(&config.ui.accent),
             sound: config.ui.sound.clone(),
             local_sound_playback: true,
@@ -1419,6 +1421,7 @@ impl App {
 
         if !invalid_section("advanced") {
             self.state.pane_scrollback_limit_bytes = config.advanced.scrollback_limit_bytes;
+            self.state.copy_mode_scrolloff = config.advanced.copy_mode_scrolloff;
         }
 
         if !invalid_section("update") {

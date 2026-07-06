@@ -1432,6 +1432,8 @@ pub struct AppState {
     pub host_terminal_appearance: Option<HostAppearance>,
     /// True when the foreground host explicitly reported appearance via Mode 2031.
     pub host_terminal_appearance_explicit: bool,
+    /// Copy mode scrolloff: lines of context kept above/below the cursor.
+    pub copy_mode_scrolloff: u16,
     /// Settings panel state.
     pub settings: SettingsState,
     /// Cached integration recommendations for onboarding/settings UI.
@@ -1784,6 +1786,7 @@ impl AppState {
             },
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
+            copy_mode_scrolloff: 0,
             settings: SettingsState {
                 section: SettingsSection::Theme,
                 list: SelectionListState::new(0),

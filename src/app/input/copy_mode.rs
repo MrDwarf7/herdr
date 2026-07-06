@@ -265,22 +265,27 @@ impl AppState {
                 .min(info.inner_rect.width.saturating_sub(1));
         }
 
-        if row_delta < 0 {
-            let delta = row_delta.unsigned_abs();
-            if copy_mode.cursor_row >= delta {
-                copy_mode.cursor_row -= delta;
+        if row_delta != 0 {
+            let last_row = info.inner_rect.height.saturating_sub(1);
+            let metrics = self.pane_scroll_metrics(terminal_runtimes, copy_mode.pane_id);
+            let (min_row, max_row) =
+                copy_mode_scrolloff_bounds(last_row, self.copy_mode_scrolloff, metrics.as_ref());
+
+            if row_delta < 0 {
+                let delta = row_delta.unsigned_abs();
+                let target = copy_mode.cursor_row.saturating_sub(delta);
+                // Past the top scrolloff margin: scroll only when already pinned there.
+                if target < min_row && copy_mode.cursor_row <= min_row {
+                    self.scroll_pane_up(terminal_runtimes, copy_mode.pane_id, usize::from(delta));
+                }
+                copy_mode.cursor_row = target.max(min_row);
             } else {
-                self.scroll_pane_up(terminal_runtimes, copy_mode.pane_id, usize::from(delta));
-                copy_mode.cursor_row = 0;
-            }
-        } else if row_delta > 0 {
-            let delta = row_delta as u16;
-            let bottom = info.inner_rect.height.saturating_sub(1);
-            if copy_mode.cursor_row.saturating_add(delta) <= bottom {
-                copy_mode.cursor_row += delta;
-            } else {
-                self.scroll_pane_down(terminal_runtimes, copy_mode.pane_id, usize::from(delta));
-                copy_mode.cursor_row = bottom;
+                let delta = row_delta as u16;
+                let target = copy_mode.cursor_row.saturating_add(delta);
+                if target > max_row && copy_mode.cursor_row >= max_row {
+                    self.scroll_pane_down(terminal_runtimes, copy_mode.pane_id, usize::from(delta));
+                }
+                copy_mode.cursor_row = target.min(max_row);
             }
         }
 
@@ -699,6 +704,25 @@ fn copy_mode_page_lines(height: u16, half_page: bool) -> usize {
     }
 }
 
+/// Cursor row range that respects scrolloff, relaxing to the viewport edge when
+/// there is no more scrollback in that direction.
+fn copy_mode_scrolloff_bounds(
+    last_row: u16,
+    scrolloff: u16,
+    metrics: Option<&crate::pane::ScrollMetrics>,
+) -> (u16, u16) {
+    let at_top = metrics.is_some_and(|m| m.offset_from_bottom >= m.max_offset_from_bottom);
+    let at_bottom = metrics.is_some_and(|m| m.offset_from_bottom == 0);
+    let min_row = if at_top { 0 } else { scrolloff.min(last_row) };
+    let max_row = if at_bottom {
+        last_row
+    } else {
+        last_row.saturating_sub(scrolloff)
+    };
+    // When scrolloff is larger than the viewport, collapse to a single valid row.
+    (min_row, max_row.max(min_row))
+}
+
 fn copy_mode_command_char(key: TerminalKey) -> Option<char> {
     if !key.modifiers.difference(KeyModifiers::SHIFT).is_empty() {
         return None;
@@ -750,8 +774,35 @@ fn shifted_ascii_char(ch: char) -> Option<char> {
 mod tests {
     use super::super::{app_for_mouse_test, numbered_lines_bytes};
     use super::*;
-    use crate::{events::AppEvent, workspace::Workspace};
+    use crate::{events::AppEvent, pane::ScrollMetrics, workspace::Workspace};
     use ratatui::layout::Rect;
+
+    #[test]
+    fn scrolloff_bounds_relax_at_scroll_edges() {
+        let mid = ScrollMetrics {
+            offset_from_bottom: 5,
+            max_offset_from_bottom: 20,
+            viewport_rows: 10,
+        };
+        let top = ScrollMetrics {
+            offset_from_bottom: 20,
+            max_offset_from_bottom: 20,
+            viewport_rows: 10,
+        };
+        let bottom = ScrollMetrics {
+            offset_from_bottom: 0,
+            max_offset_from_bottom: 20,
+            viewport_rows: 10,
+        };
+
+        assert_eq!(copy_mode_scrolloff_bounds(9, 2, Some(&mid)), (2, 7));
+        assert_eq!(copy_mode_scrolloff_bounds(9, 2, Some(&top)), (0, 7));
+        assert_eq!(copy_mode_scrolloff_bounds(9, 2, Some(&bottom)), (2, 9));
+        assert_eq!(copy_mode_scrolloff_bounds(9, 0, Some(&mid)), (0, 9));
+        // Oversized scrolloff collapses to a single valid row until an edge relaxes it.
+        assert_eq!(copy_mode_scrolloff_bounds(9, 20, Some(&mid)), (9, 9));
+        assert_eq!(copy_mode_scrolloff_bounds(9, 20, Some(&top)), (0, 0));
+    }
 
     fn app_with_copy_runtime(
         runtime: impl FnOnce(u16, u16) -> crate::terminal::TerminalRuntime,
