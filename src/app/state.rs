@@ -834,7 +834,17 @@ pub(crate) enum NavigatorStateFilter {
     Done,
 }
 
-#[derive(Debug, Clone, Default)]
+/// Sub-state for copy mode behavior.
+/// Navigate: cursor movement, no active selection.
+/// Selecting: selection anchor set, cursor extends selection.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum CopyModeSubState {
+    #[default]
+    Navigate,
+    Selecting,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct NavigatorState {
     pub query: String,
     pub selected: usize,
@@ -845,11 +855,21 @@ pub(crate) struct NavigatorState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CopyModeFindKind {
+    Forward,
+    Backward,
+    TillForward,
+    TillBackward,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct CopyModeState {
     pub pane_id: PaneId,
     pub cursor_row: u16,
     pub cursor_col: u16,
     pub entry_offset_from_bottom: usize,
+    pub substate: CopyModeSubState,
+    pub find: Option<CopyModeFindKind>,
     pub selection: Option<CopyModeSelection>,
 }
 
