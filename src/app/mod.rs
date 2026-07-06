@@ -627,6 +627,7 @@ impl App {
             local_sound_playback: true,
             toast_config: config.ui.toast.clone(),
             keybinds: config.keybinds(),
+            tab_display_layout: config.keys.tab_display_layout.clone(),
             spinner_tick: 0,
             palette: theme_palette,
             theme_name,

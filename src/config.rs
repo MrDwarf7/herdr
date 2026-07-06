@@ -1,5 +1,4 @@
 use crossterm::event::{KeyCode, KeyModifiers};
-
 mod io;
 mod keybinds;
 mod model;
@@ -18,14 +17,17 @@ pub use self::{
         IndexedKeybind, Keybinds, LiveKeybindConfig,
     },
     model::{
-        validated_sidebar_bounds, AgentPanelSortConfig, Config, ConfigReloadReport,
-        ConfigReloadStatus, HostCursorModeConfig, NewTerminalCwdConfig, ShellModeConfig,
+        default_tab_display_layout, validated_sidebar_bounds, AgentPanelSortConfig, Config, HostCursorModeConfig,
+        ConfigReloadReport, ConfigReloadStatus, NewTerminalCwdConfig, ShellModeConfig,
         SidebarCollapsedModeConfig, ToastClipboardPosition, ToastConfig, ToastDelivery,
         ToastHerdrPosition, UpdateChannelConfig, MAX_TOAST_DELAY_SECONDS,
     },
     sound::SoundConfig,
     theme::{parse_color, CustomThemeColors, ThemeConfig},
 };
+// Re-export from crate root (src/tab_display.rs) to keep workspace.rs's
+// crate::tab_display references working.
+pub use crate::tab_display::{format_tab, parse_tab_layout, FormatIdent, TabDisplayError};
 
 pub(crate) use self::io::upsert_top_level_bool;
 pub(crate) use self::keybinds::parse_key_combo;

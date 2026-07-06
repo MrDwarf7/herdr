@@ -423,6 +423,14 @@ pub struct KeysConfig {
     pub command: Vec<CommandKeybindConfig>,
     #[serde(skip_serializing)]
     pub(crate) user_fields: BTreeSet<&'static str>,
+    /// Format string for tab labels. Default: "{index}: {name}".
+    /// Named tabs → "3: foo", unnamed tabs → "3".
+    #[serde(default = "default_tab_display_layout")]
+    pub tab_display_layout: String,
+}
+
+pub fn default_tab_display_layout() -> String {
+    "{index}: {name}".to_string()
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -535,6 +543,8 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     toggle_sidebar: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    tab_display_layout: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     indexed: Option<IndexedKeysConfig>,
     #[serde(skip_serializing)]
     command: Option<Vec<CommandKeybindConfig>>,
@@ -610,6 +620,7 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(zoom);
         apply_field!(resize_mode);
         apply_field!(toggle_sidebar);
+        apply_field!(tab_display_layout);
         apply_field!(indexed);
         apply_field!(command);
 
@@ -815,6 +826,9 @@ pub struct UiConfig {
     pub toast: ToastConfig,
     /// Play sounds when agents change state in background workspaces.
     pub sound: SoundConfig,
+    /// Format string for tab labels. Default: "{index}: {name}".
+    /// Available identifiers: {index} (position-based), {name} (custom name).
+    pub tab_display_layout: String,
 }
 
 /// Cursor shape (DECSCUSR) used for the forced IME anchor.
@@ -968,6 +982,7 @@ impl Default for KeysConfig {
             indexed: IndexedKeysConfig::default(),
             command: Vec::new(),
             user_fields: BTreeSet::new(),
+            tab_display_layout: default_tab_display_layout(),
         }
     }
 }
@@ -1003,6 +1018,7 @@ impl Default for UiConfig {
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
+            tab_display_layout: "{index}: {name}".into(),
         }
     }
 }

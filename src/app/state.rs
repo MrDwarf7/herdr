@@ -1420,6 +1420,8 @@ pub struct AppState {
     pub local_sound_playback: bool,
     pub toast_config: ToastConfig,
     pub keybinds: Keybinds,
+    /// Configured tab display format string (e.g. "{index}: {name}").
+    pub tab_display_layout: String,
     /// Frame counter for spinner animations (wraps around).
     pub spinner_tick: u32,
     /// UI color palette — all sidebar/UI colors centralized for theming.
@@ -1771,6 +1773,7 @@ impl AppState {
             local_sound_playback: false,
             toast_config: ToastConfig::default(),
             keybinds: Keybinds::default(),
+            tab_display_layout: crate::config::default_tab_display_layout(),
             spinner_tick: 0,
             palette: Palette::catppuccin(),
             theme_name: "catppuccin".to_string(),

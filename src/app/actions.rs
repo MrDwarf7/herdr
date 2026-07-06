@@ -1524,6 +1524,7 @@ impl AppState {
         };
 
         let layout = crate::ui::compute_tab_bar_view(
+            &self.keybinds.tab_display_layout,
             ws,
             area,
             self.tab_scroll,

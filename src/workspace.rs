@@ -435,6 +435,19 @@ impl Workspace {
         )
     }
 
+    /// Format the tab label using a parsed display layout (e.g. `["{index}", ": ", "{name}"]`).
+    pub fn format_tab_label(&self, tab_idx: usize, layout: &[crate::tab_display::FormatIdent]) -> String {
+        let custom_name = self.tabs.get(tab_idx).and_then(|t| t.custom_name.as_deref());
+        if custom_name.is_none()
+            && layout.iter().any(|seg| matches!(seg, crate::tab_display::FormatIdent::Name))
+        {
+            // Unnamed tab with layout referencing {name}: render just the index.
+            (tab_idx + 1).to_string()
+        } else {
+            crate::tab_display::format_tab(layout, tab_idx + 1, custom_name)
+        }
+    }
+
     pub fn switch_tab(&mut self, idx: usize) {
         if idx < self.tabs.len() {
             self.active_tab = idx;

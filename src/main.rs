@@ -77,6 +77,7 @@ mod pane;
 mod persist;
 mod platform;
 mod plugin_command;
+mod tab_display;
 mod plugin_paths;
 mod product_announcements;
 mod protocol;
