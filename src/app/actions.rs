@@ -5,7 +5,7 @@ use tracing::{info, warn};
 
 use crate::detect::{Agent, AgentState};
 use crate::events::AppEvent;
-use crate::layout::PaneId;
+use crate::layout::{NavDirection, PaneId};
 #[cfg(test)]
 use crate::layout::{find_in_direction, NavDirection};
 use crate::selection::Selection;
@@ -1624,6 +1624,12 @@ impl AppState {
 
     #[cfg(test)]
     pub fn resize_pane(&mut self, direction: NavDirection) {
+        self.resize_pane_direct(direction);
+    }
+
+    /// Resize the focused pane by a fixed step without entering Resize mode.
+    /// Used by direct resize bindings (#6).
+    pub fn resize_pane_direct(&mut self, direction: NavDirection) {
         if let Some(first) = self.view.pane_infos.first() {
             let area = self
                 .view

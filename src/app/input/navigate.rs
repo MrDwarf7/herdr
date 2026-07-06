@@ -327,6 +327,18 @@ impl App {
                 leave_navigate_mode(&mut self.state);
             }
             NavigateAction::EnterResizeMode => self.state.mode = Mode::Resize,
+            NavigateAction::ResizePaneLeft => {
+                self.state.resize_pane_direct(NavDirection::Left);
+            }
+            NavigateAction::ResizePaneDown => {
+                self.state.resize_pane_direct(NavDirection::Down);
+            }
+            NavigateAction::ResizePaneUp => {
+                self.state.resize_pane_direct(NavDirection::Up);
+            }
+            NavigateAction::ResizePaneRight => {
+                self.state.resize_pane_direct(NavDirection::Right);
+            }
             NavigateAction::ToggleSidebar => {
                 self.state.sidebar_collapsed = !self.state.sidebar_collapsed;
                 leave_navigate_mode(&mut self.state);
@@ -1257,6 +1269,10 @@ pub(crate) enum NavigateAction {
     CopyMode,
     Zoom,
     EnterResizeMode,
+    ResizePaneLeft,
+    ResizePaneDown,
+    ResizePaneUp,
+    ResizePaneRight,
     ToggleSidebar,
     CyclePaneNext,
     CyclePanePrevious,
@@ -1593,6 +1609,18 @@ pub(super) fn execute_navigate_action_in_context(
             leave_navigate_mode(state);
         }
         NavigateAction::EnterResizeMode => state.mode = Mode::Resize,
+        NavigateAction::ResizePaneLeft => {
+            state.resize_pane_direct(NavDirection::Left);
+        }
+        NavigateAction::ResizePaneDown => {
+            state.resize_pane_direct(NavDirection::Down);
+        }
+        NavigateAction::ResizePaneUp => {
+            state.resize_pane_direct(NavDirection::Up);
+        }
+        NavigateAction::ResizePaneRight => {
+            state.resize_pane_direct(NavDirection::Right);
+        }
         NavigateAction::ToggleSidebar => {
             state.sidebar_collapsed = !state.sidebar_collapsed;
             leave_navigate_mode(state);
