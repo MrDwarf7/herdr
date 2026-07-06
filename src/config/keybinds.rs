@@ -358,6 +358,8 @@ pub struct Keybinds {
     pub resize_pane_right: ActionKeybinds,
     pub toggle_sidebar: ActionKeybinds,
     pub custom_commands: Vec<CustomCommandKeybind>,
+    /// Format string for tab labels (e.g. "{index}: {name}").
+    pub tab_display_layout: String,
 }
 
 impl Default for Keybinds {
@@ -526,6 +528,7 @@ impl Config {
             resize_pane_right: empty_action!(),
             toggle_sidebar: empty_action!(),
             custom_commands: Vec::new(),
+            tab_display_layout: self.keys.tab_display_layout.clone(),
         };
 
         macro_rules! field_source {
