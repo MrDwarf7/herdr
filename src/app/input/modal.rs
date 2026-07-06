@@ -377,6 +377,7 @@ pub(super) fn open_rename_workspace(
     state.rename_pane_target = None;
     state.name_input =
         state.workspaces[ws_idx].display_name_from(&state.terminals, terminal_runtimes);
+    state.name_input_cursor = state.name_input.len();
     state.name_input_replace_on_type = false;
     state.mode = Mode::RenameWorkspace;
 }
@@ -400,6 +401,7 @@ pub(super) fn open_rename_active_tab(state: &mut AppState, replace_on_type: bool
     if let Some(ws) = state.active.and_then(|i| state.workspaces.get(i)) {
         if let Some(name) = ws.active_tab_display_name() {
             state.name_input = name;
+            state.name_input_cursor = state.name_input.len();
             state.name_input_replace_on_type = replace_on_type;
             state.mode = Mode::RenameTab;
         }
@@ -421,6 +423,7 @@ pub(super) fn open_rename_pane(state: &mut AppState, pane_id: crate::layout::Pan
     state.name_input = terminal
         .and_then(|t| t.manual_label.clone())
         .unwrap_or_default();
+    state.name_input_cursor = state.name_input.len();
     state.name_input_replace_on_type = terminal.and_then(|t| t.manual_label.as_ref()).is_none();
     state.mode = Mode::RenamePane;
 }
@@ -444,6 +447,7 @@ pub(super) fn open_new_tab_dialog(state: &mut AppState) {
     state.pending_workspace_create_cwd = None;
     state.rename_pane_target = None;
     state.name_input = next_new_tab_default_name(state);
+    state.name_input_cursor = state.name_input.len();
     state.name_input_replace_on_type = true;
     state.mode = Mode::RenameTab;
 }
@@ -606,6 +610,7 @@ pub(super) fn apply_rename_action(state: &mut AppState, action: ModalAction) {
 
 fn clear_rename_input(state: &mut AppState) {
     state.name_input.clear();
+    state.name_input_cursor = 0;
     state.name_input_replace_on_type = false;
 }
 
@@ -673,6 +678,10 @@ fn delete_rename_input_word(state: &mut AppState) {
 }
 
 fn handle_rename_edit_key(state: &mut AppState, key: KeyEvent) {
+    use crate::text::cursor::{
+        backspace_at, cursor_end, cursor_home, cursor_left, cursor_right, delete_word_at,
+        insert_at,
+    };
     match key.code {
         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             clear_rename_input(state);
@@ -684,14 +693,37 @@ fn handle_rename_edit_key(state: &mut AppState, key: KeyEvent) {
             if key.modifiers.contains(KeyModifiers::CONTROL)
                 || key.modifiers.contains(KeyModifiers::ALT) =>
         {
-            delete_rename_input_word(state);
+            if let Some(new_cursor) = delete_word_at(&mut state.name_input, state.name_input_cursor) {
+                state.name_input_cursor = new_cursor;
+            }
         }
         KeyCode::Char('h' | 'w') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            delete_rename_input_word(state);
+            if let Some(new_cursor) = delete_word_at(&mut state.name_input, state.name_input_cursor) {
+                state.name_input_cursor = new_cursor;
+            }
         }
-        KeyCode::Backspace => delete_rename_input_char(state),
+        KeyCode::Backspace => {
+            if let Some(new_cursor) = backspace_at(&mut state.name_input, state.name_input_cursor) {
+                state.name_input_cursor = new_cursor;
+            }
+        }
+        KeyCode::Left => {
+            state.name_input_cursor = cursor_left(&state.name_input, state.name_input_cursor);
+        }
+        KeyCode::Right => {
+            state.name_input_cursor = cursor_right(&state.name_input, state.name_input_cursor);
+        }
+        KeyCode::Home => {
+            state.name_input_cursor = cursor_home(&state.name_input, state.name_input_cursor);
+        }
+        KeyCode::End => {
+            state.name_input_cursor = cursor_end(&state.name_input, state.name_input_cursor);
+        }
         KeyCode::Char(c) if key.modifiers.difference(KeyModifiers::SHIFT).is_empty() => {
-            insert_rename_input_text(state, &c.to_string());
+            if state.name_input_replace_on_type {
+                clear_rename_input(state);
+            }
+            state.name_input_cursor = insert_at(&mut state.name_input, state.name_input_cursor, c);
         }
         _ => {}
     }
@@ -1678,6 +1710,7 @@ mod tests {
         let mut state = state_with_workspaces(&["test"]);
         state.mode = Mode::RenameWorkspace;
         state.name_input = "website zero".into();
+        state.name_input_cursor = state.name_input.len();
 
         handle_rename_key(
             &mut state,
@@ -1692,6 +1725,7 @@ mod tests {
         assert_eq!(state.name_input, "website ");
 
         state.name_input = "website-zero".into();
+        state.name_input_cursor = state.name_input.len();
         handle_rename_key(
             &mut state,
             KeyEvent::new(KeyCode::Backspace, KeyModifiers::ALT),
@@ -1699,6 +1733,7 @@ mod tests {
         assert_eq!(state.name_input, "website-");
 
         state.name_input = "website-zero".into();
+        state.name_input_cursor = state.name_input.len();
         handle_rename_key(
             &mut state,
             KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL),
@@ -1706,6 +1741,7 @@ mod tests {
         assert_eq!(state.name_input, "website-");
 
         state.name_input = "website-zero".into();
+        state.name_input_cursor = state.name_input.len();
         handle_rename_key(
             &mut state,
             KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
@@ -1719,6 +1755,7 @@ mod tests {
         assert!(state.name_input.is_empty());
 
         state.name_input = "website zero".into();
+        state.name_input_cursor = state.name_input.len();
         handle_rename_key(
             &mut state,
             KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL),
@@ -1731,6 +1768,7 @@ mod tests {
         let mut state = state_with_workspaces(&["test"]);
         state.mode = Mode::RenameWorkspace;
         state.name_input = "website".into();
+        state.name_input_cursor = state.name_input.len();
 
         handle_rename_key(
             &mut state,
