@@ -80,6 +80,7 @@ mod plugin_command;
 mod plugin_paths;
 mod product_announcements;
 mod protocol;
+mod text;
 mod pty;
 mod raw_input;
 mod release_notes;
