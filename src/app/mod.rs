@@ -525,6 +525,7 @@ impl App {
             request_clipboard_write: None,
             creating_new_tab: false,
             requested_new_tab_name: None,
+            requested_new_tab_cwd: None,
             rename_pane_target: None,
             worktree_create: None,
             worktree_open: None,

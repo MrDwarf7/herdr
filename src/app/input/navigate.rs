@@ -241,11 +241,16 @@ impl App {
                     if self.state.prompt_new_tab_name {
                         super::modal::open_new_tab_dialog(&mut self.state);
                     } else {
+                        let cwd = self
+                            .state
+                            .requested_new_tab_cwd
+                            .take()
+                            .map(|p| p.to_string_lossy().to_string());
                         self.runtime_tab_create(
                             "tui.key.tab.create",
                             crate::api::schema::TabCreateParams {
                                 workspace_id: None,
-                                cwd: None,
+                                cwd,
                                 focus: true,
                                 label: None,
                                 env: Default::default(),
@@ -253,6 +258,23 @@ impl App {
                         );
                         leave_navigate_mode(&mut self.state);
                     }
+                }
+            }
+            NavigateAction::NewTabHome => {
+                if self.state.active.is_some() {
+                    let cwd = std::env::var_os("HOME").map(std::path::PathBuf::from);
+                    let cwd = cwd.map(|p| p.to_string_lossy().to_string());
+                    self.runtime_tab_create(
+                        "tui.key.tab.create",
+                        crate::api::schema::TabCreateParams {
+                            workspace_id: None,
+                            cwd,
+                            focus: true,
+                            label: None,
+                            env: Default::default(),
+                        },
+                    );
+                    leave_navigate_mode(&mut self.state);
                 }
             }
             NavigateAction::RenameTab => {
@@ -267,6 +289,27 @@ impl App {
             NavigateAction::NextTab => {
                 if let Some(tab_idx) = self.relative_tab(1) {
                     self.focus_tab_idx_via_api(tab_idx);
+                    leave_navigate_mode(&mut self.state);
+                }
+            }
+            NavigateAction::MoveTabLeft => {
+                if let Some(ws_idx) = self.state.active {
+                    let ws = &self.state.workspaces[ws_idx];
+                    let active = ws.active_tab;
+                    if active > 0 {
+                        self.move_tab_via_api(ws_idx, active, active - 1);
+                    }
+                    leave_navigate_mode(&mut self.state);
+                }
+            }
+            NavigateAction::MoveTabRight => {
+                if let Some(ws_idx) = self.state.active {
+                    let ws = &self.state.workspaces[ws_idx];
+                    let active = ws.active_tab;
+                    let tab_count = ws.tabs.len();
+                    if active + 1 < tab_count {
+                        self.move_tab_via_api(ws_idx, active, active + 1);
+                    }
                     leave_navigate_mode(&mut self.state);
                 }
             }
@@ -1237,9 +1280,12 @@ pub(crate) enum NavigateAction {
     PreviousAgent,
     NextAgent,
     NewTab,
+    NewTabHome,
     RenameTab,
     PreviousTab,
     NextTab,
+    MoveTabLeft,
+    MoveTabRight,
     CloseTab,
     RenamePane,
     FocusPaneLeft,
@@ -1364,9 +1410,12 @@ fn action_for_key(
         (&kb.previous_agent, NavigateAction::PreviousAgent),
         (&kb.next_agent, NavigateAction::NextAgent),
         (&kb.new_tab, NavigateAction::NewTab),
+        (&kb.new_tab_home, NavigateAction::NewTabHome),
         (&kb.rename_tab, NavigateAction::RenameTab),
         (&kb.previous_tab, NavigateAction::PreviousTab),
         (&kb.next_tab, NavigateAction::NextTab),
+        (&kb.move_tab_left, NavigateAction::MoveTabLeft),
+        (&kb.move_tab_right, NavigateAction::MoveTabRight),
         (&kb.close_tab, NavigateAction::CloseTab),
         (&kb.rename_pane, NavigateAction::RenamePane),
         (&kb.edit_scrollback, NavigateAction::EditScrollback),
@@ -1530,6 +1579,14 @@ pub(super) fn execute_navigate_action_in_context(
                 }
             }
         }
+        NavigateAction::NewTabHome => {
+            if state.active.is_some() {
+                state.requested_new_tab_cwd =
+                    std::env::var_os("HOME").map(std::path::PathBuf::from);
+                state.request_new_tab = true;
+                leave_navigate_mode(state);
+            }
+        }
         NavigateAction::RenameTab => super::modal::open_rename_active_tab(state, false),
         NavigateAction::PreviousTab => {
             state.previous_tab();
@@ -1537,6 +1594,25 @@ pub(super) fn execute_navigate_action_in_context(
         }
         NavigateAction::NextTab => {
             state.next_tab();
+            leave_navigate_mode(state);
+        }
+        NavigateAction::MoveTabLeft => {
+            if let Some(ws_idx) = workspace_action_target(state, context) {
+                let active = state.workspaces[ws_idx].active_tab;
+                if active > 0 {
+                    state.workspaces[ws_idx].move_tab(active, active - 1);
+                }
+            }
+            leave_navigate_mode(state);
+        }
+        NavigateAction::MoveTabRight => {
+            if let Some(ws_idx) = workspace_action_target(state, context) {
+                let active = state.workspaces[ws_idx].active_tab;
+                let tab_count = state.workspaces[ws_idx].tabs.len();
+                if active + 1 < tab_count {
+                    state.workspaces[ws_idx].move_tab(active, active + 1);
+                }
+            }
             leave_navigate_mode(state);
         }
         NavigateAction::CloseTab => {

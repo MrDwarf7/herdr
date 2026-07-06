@@ -363,12 +363,18 @@ pub struct KeysConfig {
     pub remote_image_paste: String,
     /// Create a new tab in the active workspace. Default: "prefix+c"
     pub new_tab: BindingConfig,
+    /// Create a new tab in $HOME regardless of active workspace cwd. Unset by default.
+    pub new_tab_home: BindingConfig,
     /// Rename the active tab. Default: "prefix+shift+t".
     pub rename_tab: BindingConfig,
     /// Select the previous tab. Default: "prefix+p".
     pub previous_tab: BindingConfig,
     /// Select the next tab. Default: "prefix+n".
     pub next_tab: BindingConfig,
+    /// Move active tab left. Unset by default.
+    pub move_tab_left: BindingConfig,
+    /// Move active tab right. Unset by default.
+    pub move_tab_right: BindingConfig,
     /// Switch to tab 1-9. Default: "prefix+1..9".
     pub switch_tab: BindingConfig,
     /// Switch to workspace 1-9 from prefix mode. Unset by default.
@@ -483,11 +489,17 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     new_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    new_tab_home: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     rename_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     next_tab: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    move_tab_left: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    move_tab_right: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     switch_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -584,9 +596,12 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(focus_agent);
         apply_field!(remote_image_paste);
         apply_field!(new_tab);
+        apply_field!(new_tab_home);
         apply_field!(rename_tab);
         apply_field!(previous_tab);
         apply_field!(next_tab);
+        apply_field!(move_tab_left);
+        apply_field!(move_tab_right);
         apply_field!(switch_tab);
         apply_field!(switch_workspace);
         apply_field!(close_tab);
@@ -682,6 +697,7 @@ impl KeysConfig {
         copy_effective_indexed_field!(focus_agent, keybinds.focus_agent);
         copy_user_field!(remote_image_paste);
         copy_effective_action_field!(new_tab, keybinds.new_tab);
+        copy_effective_action_field!(new_tab_home, keybinds.new_tab_home);
         copy_effective_action_field!(rename_tab, keybinds.rename_tab);
         copy_effective_action_field!(previous_tab, keybinds.previous_tab);
         copy_effective_action_field!(next_tab, keybinds.next_tab);
@@ -939,9 +955,12 @@ impl Default for KeysConfig {
             focus_agent: BindingConfig::empty(),
             remote_image_paste: "ctrl+v".into(),
             new_tab: BindingConfig::one("prefix+c"),
+            new_tab_home: BindingConfig::one("prefix+shift+c"),
             rename_tab: BindingConfig::one("prefix+shift+t"),
             previous_tab: BindingConfig::one("prefix+p"),
             next_tab: BindingConfig::one("prefix+n"),
+            move_tab_left: BindingConfig::empty(),
+            move_tab_right: BindingConfig::empty(),
             switch_tab: BindingConfig::one("prefix+1..9"),
             switch_workspace: BindingConfig::empty(),
             close_tab: BindingConfig::one("prefix+shift+x"),

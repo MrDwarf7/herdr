@@ -63,7 +63,20 @@ impl App {
             return encode_error(id, "workspace_not_found", "no active workspace");
         };
         let cwd = cwd.map(PathBuf::from).unwrap_or_else(|| {
-            self.resolve_new_terminal_cwd(self.focused_pane_cwd_in_workspace(ws_idx))
+            let runtime_cwd = self
+                .state
+                .focused_runtime_in_workspace(&self.terminal_runtimes, ws_idx)
+                .and_then(|rt| rt.cwd());
+            let ws_cwd = self
+                .state
+                .workspaces
+                .get(ws_idx)
+                .map(|ws| ws.identity_cwd.clone());
+            self.resolve_new_terminal_cwd(
+                runtime_cwd
+                    .or_else(|| self.focused_pane_cwd_in_workspace(ws_idx))
+                    .or(ws_cwd),
+            )
         });
         let (rows, cols) = self.state.estimate_pane_size();
         let default_shell = self.state.default_shell.clone();
